@@ -27,7 +27,7 @@ def main() -> None:
     processed_dir = Path(cfg["data"]["processed_dir"])
 
     features = pd.read_parquet(processed_dir / "features.parquet")
-    labels   = pd.read_parquet(processed_dir / "labels.parquet")
+    labels   = pd.read_parquet(processed_dir / "labels_ranked.parquet")
 
     mode      = cfg["universe"]["mode"]
     dev_top_n = cfg["universe"]["dev_top_n"] if mode == "dev" else None

@@ -13,7 +13,7 @@ import pandas as pd
 import yaml
 
 from src.features.features import rebalance_dates
-from src.labels.labels import build_label_panel
+from src.labels.labels import build_label_panel, rank_labels
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
@@ -31,19 +31,25 @@ def main() -> None:
     prices = pd.read_parquet(processed_dir / "prices_clean.parquet")
     prices.index = pd.to_datetime(prices.index)
 
-    dates  = rebalance_dates(prices.index, freq=horizon)
-    labels = build_label_panel(prices, dates, horizon=horizon)
+    dates      = rebalance_dates(prices.index, freq=horizon)
+    raw_labels = build_label_panel(prices, dates, horizon=horizon)
 
     logger.info(
         "Labels: %d observations  dates: %s .. %s",
-        len(labels),
-        labels.index.get_level_values("date").min().date(),
-        labels.index.get_level_values("date").max().date(),
+        len(raw_labels),
+        raw_labels.index.get_level_values("date").min().date(),
+        raw_labels.index.get_level_values("date").max().date(),
     )
 
-    out = processed_dir / "labels.parquet"
-    labels.to_parquet(out)
-    logger.info("Wrote %s", out)
+    # Raw returns — used by the backtest to compute actual portfolio P&L
+    raw_path = processed_dir / "labels.parquet"
+    raw_labels.to_parquet(raw_path)
+    logger.info("Wrote %s  (raw returns)", raw_path)
+
+    # Cross-sectional ranks — used by the model as training target
+    ranked_path = processed_dir / "labels_ranked.parquet"
+    rank_labels(raw_labels).to_parquet(ranked_path)
+    logger.info("Wrote %s  (cross-sectional ranks)", ranked_path)
 
 
 if __name__ == "__main__":

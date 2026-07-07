@@ -1,9 +1,12 @@
-"""Cross-sectional price signals for the weekly equity strategy.
+"""Cross-sectional price signals for the monthly equity strategy.
 
 Features (all rank-normalized to [0,1] cross-sectionally on each date)
 -----------------------------------------------------------------------
 mom_12_1      : 12-month return skipping last month  (252d → 21d lookback)
-mom_1         : 1-month return (21-day lookback)
+mom_6_1       : 6-month return skipping last month   (126d → 21d lookback)
+mom_3         : 3-month return                       (63d  lookback)
+mom_1         : 1-month return (short-term reversal / residual signal)
+high_52w      : price / 252-day rolling high (52-week-high proximity anomaly)
 vol_21        : 21-day realized volatility, annualized (std × √252)
 rsi_14        : 14-day RSI (simple rolling-mean variant)
 dollar_vol_60 : 60-day avg of Close × Volume — size/liquidity proxy and
@@ -43,6 +46,11 @@ def _rsi(prices: pd.DataFrame, window: int = 14) -> pd.DataFrame:
     return rsi.where(~((loss == 0) & (gain > 0)), 100.0)
 
 
+def _high_52w(prices: pd.DataFrame, window: int = 252) -> pd.DataFrame:
+    """Current price as a fraction of the 252-day rolling high."""
+    return prices / prices.rolling(window).max()
+
+
 def _dollar_vol(prices: pd.DataFrame, volumes: pd.DataFrame, window: int = 60) -> pd.DataFrame:
     return (prices * volumes).rolling(window).mean()
 
@@ -68,7 +76,10 @@ def compute_all(
     """Compute all raw features on every date in the panel."""
     return {
         "mom_12_1":      _mom(prices, lookback=252, skip=21),
+        "mom_6_1":       _mom(prices, lookback=126, skip=21),
+        "mom_3":         _mom(prices, lookback=63,  skip=0),
         "mom_1":         _mom(prices, lookback=21,  skip=0),
+        "high_52w":      _high_52w(prices, window=252),
         "vol_21":        _vol(returns, window=21),
         "rsi_14":        _rsi(prices, window=14),
         "dollar_vol_60": _dollar_vol(prices, volumes, window=60),

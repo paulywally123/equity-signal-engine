@@ -6,14 +6,19 @@ import numpy as np
 import pandas as pd
 
 
-def _construct_weights(scores: pd.Series, top_q: float) -> pd.Series:
-    """Equal-weight long top quintile, short bottom quintile; zero otherwise."""
+def _construct_weights(
+    scores: pd.Series,
+    top_q: float,
+    long_only: bool = False,
+) -> pd.Series:
+    """Equal-weight long top quintile; optionally short bottom quintile."""
     n = len(scores)
     n_leg = max(1, int(round(n * top_q)))
     ranked = scores.rank(ascending=True)
     weights = pd.Series(0.0, index=scores.index)
-    weights[ranked > (n - n_leg)] =  1.0 / n_leg   # long leg
-    weights[ranked <= n_leg]       = -1.0 / n_leg   # short leg
+    weights[ranked > (n - n_leg)] = 1.0 / n_leg    # long leg
+    if not long_only:
+        weights[ranked <= n_leg] = -1.0 / n_leg    # short leg
     return weights
 
 
@@ -22,6 +27,8 @@ def run_backtest(
     labels: pd.DataFrame,
     costs_bps: float = 10,
     top_q: float = 0.2,
+    long_only: bool = False,
+    regime: pd.Series | None = None,
 ) -> pd.DataFrame:
     """Compute per-period gross and net returns.
 
@@ -31,20 +38,35 @@ def run_backtest(
     labels      : (date, ticker) MultiIndex, column 'fwd_return'
     costs_bps   : one-way transaction cost in basis points
     top_q       : fraction of universe in each leg
+    regime      : optional boolean Series indexed by date; True = invest,
+                  False = flat (cash).  Regime is sampled from the most
+                  recent prior bar so there is no look-ahead.
 
     Returns
     -------
     DataFrame indexed by date with: gross_return, cost, net_return,
     long_return, short_return.
     """
-    pred_dates = predictions.index.get_level_values("date").unique().sort_values()
+    pred_dates  = predictions.index.get_level_values("date").unique().sort_values()
     label_dates = set(labels.index.get_level_values("date"))
     prev_weights: pd.Series | None = None
     results = []
 
     for date in pred_dates:
-        scores = predictions.xs(date, level="date")["score"]
-        weights = _construct_weights(scores, top_q)
+        # Market regime: look up most recent signal strictly before this date
+        in_regime = True
+        if regime is not None:
+            past = regime[regime.index < date]
+            if len(past):
+                in_regime = bool(past.iloc[-1])
+
+        if in_regime:
+            scores  = predictions.xs(date, level="date")["score"]
+            weights = _construct_weights(scores, top_q, long_only=long_only)
+        else:
+            # Flat / cash — zero weights, pay liquidation cost if we were invested
+            scores  = predictions.xs(date, level="date")["score"]
+            weights = pd.Series(0.0, index=scores.index)
 
         if date in label_dates:
             fwd = labels.xs(date, level="date")["fwd_return"]
@@ -58,7 +80,7 @@ def run_backtest(
             gross = long_ret = short_ret = np.nan
 
         if prev_weights is not None:
-            prev = prev_weights.reindex(weights.index, fill_value=0.0)
+            prev     = prev_weights.reindex(weights.index, fill_value=0.0)
             turnover = (weights - prev).abs().sum()
         else:
             turnover = weights.abs().sum()
@@ -71,10 +93,11 @@ def run_backtest(
             "net_return":   gross - cost if not np.isnan(gross) else np.nan,
             "long_return":  long_ret,
             "short_return": short_ret,
+            "in_regime":    in_regime,
         })
         prev_weights = weights
 
-    return pd.DataFrame(results).set_index("date").dropna()
+    return pd.DataFrame(results).set_index("date").dropna(subset=["net_return"])
 
 
 def compute_metrics(port_returns: pd.DataFrame, periods_per_year: int = 52) -> dict:
@@ -116,3 +139,32 @@ def information_coefficient(
         ics[date] = scores[common].corr(fwd[common], method="spearman")
 
     return pd.Series(ics, name="ic").sort_index()
+
+
+def feature_ic(
+    features: pd.DataFrame,
+    labels: pd.DataFrame,
+) -> pd.DataFrame:
+    """Spearman IC of each raw feature against realized returns, per date.
+
+    Returns a DataFrame indexed by date, one column per feature.
+    Useful for diagnosing which signals actually correlate with future returns.
+    """
+    label_dates = set(labels.index.get_level_values("date"))
+    feat_dates  = features.index.get_level_values("date").unique()
+    records: list[dict] = []
+
+    for date in feat_dates:
+        if date not in label_dates:
+            continue
+        feats = features.xs(date, level="date")
+        fwd   = labels.xs(date, level="date")["fwd_return"].dropna()
+        common = feats.index.intersection(fwd.index)
+        if len(common) < 10:
+            continue
+        row = {"date": date}
+        for col in feats.columns:
+            row[col] = feats.loc[common, col].corr(fwd[common], method="spearman")
+        records.append(row)
+
+    return pd.DataFrame(records).set_index("date").sort_index()

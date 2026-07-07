@@ -8,6 +8,7 @@ import pytest
 
 from src.features.features import (
     _dollar_vol,
+    _high_52w,
     _mom,
     _rsi,
     _vol,
@@ -54,6 +55,27 @@ def test_mom_correct_lookback():
     result = _mom(prices, lookback=252, skip=0)
     # At the last row: price[252]/price[0] - 1 = 110/100 - 1 = 0.10
     assert result["A"].iloc[-1] == pytest.approx(0.10, rel=1e-6)
+
+
+# ---------------------------------------------------------------------------
+# _high_52w
+# ---------------------------------------------------------------------------
+
+def test_high_52w_bounded_0_to_1():
+    prices = _prices()
+    h52 = _high_52w(prices, window=252)
+    valid = h52.stack(future_stack=True).dropna()
+    assert (valid > 0).all() and (valid <= 1.0).all()
+
+
+def test_high_52w_at_new_high_equals_1():
+    """When price is at a new 252-day high the ratio must equal 1."""
+    vals = list(range(1, 260))   # monotonically increasing
+    prices = pd.DataFrame({"A": [float(v) for v in vals]},
+                          index=pd.bdate_range("2020-01-02", periods=259))
+    h52 = _high_52w(prices, window=252)
+    # After 252 bars the price is always the running max → ratio = 1
+    assert h52["A"].iloc[252:].dropna().eq(1.0).all()
 
 
 # ---------------------------------------------------------------------------
@@ -128,7 +150,7 @@ def test_build_feature_panel_multiindex_and_columns():
     panel = build_feature_panel(prices, returns, volumes, dates)
 
     assert panel.index.names == ["date", "ticker"]
-    assert set(panel.columns) == {"mom_12_1", "mom_1", "vol_21", "rsi_14", "dollar_vol_60"}
+    assert set(panel.columns) == {"mom_12_1", "mom_6_1", "mom_3", "mom_1", "high_52w", "vol_21", "rsi_14", "dollar_vol_60"}
     assert len(panel) > 0
     # No all-NaN rows
     assert not panel.isna().all(axis=1).any()

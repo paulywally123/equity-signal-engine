@@ -21,7 +21,7 @@ data:
 
 # Populated in later phases:
 labels:
-  horizon_days: 5      # weekly, non-overlapping rebalance
+  horizon_days: 20     # monthly, non-overlapping rebalance
 
 costs:
   per_side_bps: 10     # base case; sensitivity run at [5, 10, 20]

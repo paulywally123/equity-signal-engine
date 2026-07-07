@@ -16,6 +16,21 @@ def forward_returns(prices: pd.DataFrame, horizon: int = 5) -> pd.DataFrame:
     return np.log(prices / prices.shift(horizon)).shift(-horizon)
 
 
+def rank_labels(labels: pd.DataFrame) -> pd.DataFrame:
+    """Replace fwd_return with its cross-sectional percentile rank on each date.
+
+    Produces a stable [0, 1] target that is scale-invariant across market
+    regimes — a volatile month and a quiet month both have the same target
+    distribution, so the model learns relative ordering rather than absolute
+    return magnitude.
+    """
+    ranked = labels.copy()
+    ranked["fwd_return"] = (
+        labels.groupby(level="date")["fwd_return"].rank(pct=True)
+    )
+    return ranked
+
+
 def build_label_panel(
     prices: pd.DataFrame,
     dates: pd.DatetimeIndex,

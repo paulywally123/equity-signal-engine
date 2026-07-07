@@ -18,7 +18,7 @@ import pandas as pd
 
 logger = logging.getLogger(__name__)
 
-FEATURE_COLS = ["mom_12_1", "mom_1", "vol_21", "rsi_14", "dollar_vol_60"]
+FEATURE_COLS = ["mom_12_1", "mom_6_1", "mom_3", "mom_1", "high_52w", "vol_21", "rsi_14", "dollar_vol_60"]
 
 PARAMS: dict = {
     "objective":        "regression",
