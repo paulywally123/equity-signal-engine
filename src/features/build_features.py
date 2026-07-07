@@ -13,7 +13,7 @@ import pandas as pd
 import yaml
 
 from src.data.prices import load_panel
-from src.features.features import build_feature_panel, rebalance_dates
+from src.features.features import build_feature_panel, rank_normalize, rebalance_dates
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
@@ -43,8 +43,39 @@ def main() -> None:
     logger.info("Rebalance dates: %d  (%s .. %s)",
                 len(dates), dates[0].date(), dates[-1].date())
 
-    logger.info("Computing features ...")
+    logger.info("Computing price features ...")
     features = build_feature_panel(prices, returns, volumes, dates)
+
+    # Join fundamental features if the panel has been built
+    fund_path = processed_dir / "fundamentals_panel.parquet"
+    if fund_path.exists():
+        logger.info("Joining fundamental features ...")
+        fund = pd.read_parquet(fund_path)
+        # Ensure date level is datetime
+        fund = fund.reset_index()
+        fund["date"] = pd.to_datetime(fund["date"])
+        fund = fund.set_index(["date", "ticker"])
+        # Rank-normalize each fundamental feature cross-sectionally on each date
+        # then join into the main panel
+        fund_cols = list(fund.columns)
+        fund_wide = fund.unstack(level="ticker")   # (date, feature-ticker wide)
+        fund_ranked_frames = []
+        for col in fund_cols:
+            if col in fund_wide.columns.get_level_values(0):
+                wide = fund_wide[col]              # date × ticker
+                ranked = rank_normalize(wide)      # cross-sectional rank
+                ranked.index.name = "date"
+                s = ranked.stack(future_stack=True)
+                s.name = col
+                fund_ranked_frames.append(s)
+        if fund_ranked_frames:
+            fund_ranked = pd.concat(fund_ranked_frames, axis=1)
+            fund_ranked.index.names = ["date", "ticker"]
+            features = features.join(fund_ranked, how="left")
+            logger.info("Added fundamental columns: %s", fund_cols)
+    else:
+        logger.info("No fundamentals_panel.parquet found — skipping fundamental features")
+
     logger.info(
         "Feature panel: %d observations  %d tickers  %d features",
         len(features),

@@ -18,7 +18,11 @@ import pandas as pd
 
 logger = logging.getLogger(__name__)
 
-FEATURE_COLS = ["mom_12_1", "mom_6_1", "mom_3", "mom_1", "high_52w", "vol_21", "rsi_14", "dollar_vol_60"]
+PRICE_FEATURE_COLS = ["mom_12_1", "mom_6_1", "mom_3", "mom_1", "high_52w", "vol_21", "rsi_14", "dollar_vol_60"]
+FUND_FEATURE_COLS  = ["gross_prof", "roe", "ep_ratio"]
+
+# Resolved at training time: include only columns actually present in the panel
+FEATURE_COLS = PRICE_FEATURE_COLS + FUND_FEATURE_COLS
 
 PARAMS: dict = {
     "objective":        "regression",
@@ -70,6 +74,10 @@ def walk_forward_predict(
     if dev_top_n is not None:
         data = _apply_dev_filter(data, top_n=dev_top_n)
 
+    # Use only the feature columns that are actually present in the panel
+    feat_cols = [c for c in FEATURE_COLS if c in data.columns]
+    logger.info("Using %d features: %s", len(feat_cols), feat_cols)
+
     all_dates = data.index.get_level_values("date").unique().sort_values()
     cutoff = pd.Timestamp(initial_train_end)
     test_dates = all_dates[all_dates > cutoff]
@@ -88,14 +96,14 @@ def walk_forward_predict(
             continue
 
         model = lgb.LGBMRegressor(**params)
-        model.fit(train[FEATURE_COLS], train["fwd_return"])
+        model.fit(train[feat_cols], train["fwd_return"])
         logger.info("Year %d: trained on %d obs", year, len(train))
 
         year_test = data[data.index.get_level_values("date").year == year]
         if year_test.empty:
             continue
 
-        scores = model.predict(year_test[FEATURE_COLS])
+        scores = model.predict(year_test[feat_cols])
         predictions.append(pd.DataFrame({"score": scores}, index=year_test.index))
 
     if not predictions:

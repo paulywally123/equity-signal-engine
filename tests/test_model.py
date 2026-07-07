@@ -6,7 +6,10 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from src.models.model import FEATURE_COLS, _apply_dev_filter, walk_forward_predict
+from src.models.model import PRICE_FEATURE_COLS, _apply_dev_filter, walk_forward_predict
+
+# Tests use price-only features so the fixture doesn't need a fundamentals panel
+FEATURE_COLS = PRICE_FEATURE_COLS
 
 
 # ---------------------------------------------------------------------------
