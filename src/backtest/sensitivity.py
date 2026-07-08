@@ -12,14 +12,14 @@ from pathlib import Path
 import pandas as pd
 import yaml
 
-from src.backtest.backtest import compute_metrics, run_backtest
+from src.backtest.backtest import compute_metrics, equal_weight_index, run_backtest
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
 
 
-def _regime(prices: pd.DataFrame, window: int) -> pd.Series:
-    idx = prices.mean(axis=1)
+def _regime(returns: pd.DataFrame, window: int) -> pd.Series:
+    idx = equal_weight_index(returns)
     r = idx > idx.rolling(window).mean()
     r.index = pd.to_datetime(r.index)
     return r
@@ -35,9 +35,10 @@ def main() -> None:
     horizon       = cfg["labels"]["horizon_days"]
     ppy           = int(round(252 / horizon))
 
-    predictions = pd.read_parquet(processed_dir / "predictions.parquet")
-    labels      = pd.read_parquet(processed_dir / "labels.parquet")
-    prices      = pd.read_parquet(processed_dir / "prices_clean.parquet")
+    predictions   = pd.read_parquet(processed_dir / "predictions.parquet")
+    labels        = pd.read_parquet(processed_dir / "labels.parquet")
+    returns_panel = pd.read_parquet(processed_dir / "returns.parquet")
+    returns_panel.index = pd.to_datetime(returns_panel.index)
 
     grids = {
         "top_q":         [0.10, 0.15, 0.20, 0.25, 0.30],
@@ -45,12 +46,14 @@ def main() -> None:
         "regime_window": [100, 150, 200, 250, None],
     }
 
-    base = dict(top_q=0.20, costs_bps=cfg["costs"]["per_side_bps"], regime_window=200)
+    # No regime filter by default -- see build_backtest.py for why it was
+    # dropped. Kept here as an explicit, opt-in variation to explore.
+    base = dict(top_q=0.20, costs_bps=cfg["costs"]["per_side_bps"], regime_window=None)
 
     rows = []
 
     def _run(top_q, costs_bps, regime_window, label):
-        regime = _regime(prices, regime_window) if regime_window else None
+        regime = _regime(returns_panel, regime_window) if regime_window else None
         bt = run_backtest(predictions, labels,
                           costs_bps=costs_bps, top_q=top_q,
                           long_only=True, regime=regime)

@@ -6,6 +6,21 @@ import numpy as np
 import pandas as pd
 
 
+def equal_weight_index(returns: pd.DataFrame) -> pd.Series:
+    """Compound equal-weight index level from daily log returns.
+
+    Cross-sectional mean log return each day (NaN-skipping, so tickers
+    outside their point-in-time membership window don't count), then
+    compounded into a level series. Averaging raw price levels instead
+    (as opposed to returns) would give every ticker influence proportional
+    to its nominal share price rather than an equal weight -- a $500 stock
+    would move the "index" 100x more than a $5 stock for the same percentage
+    move, the classic price-weighted-index distortion.
+    """
+    daily = returns.mean(axis=1)
+    return np.exp(daily.cumsum())
+
+
 def _construct_weights(
     scores: pd.Series,
     top_q: float,

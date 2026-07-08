@@ -50,10 +50,10 @@ def main() -> None:
     processed_dir = Path(cfg["data"]["processed_dir"])
     costs_bps     = cfg["costs"]["per_side_bps"]
 
-    predictions = pd.read_parquet(processed_dir / "predictions.parquet")
-    labels      = pd.read_parquet(processed_dir / "labels.parquet")
-    features    = pd.read_parquet(processed_dir / "features.parquet")
-    prices      = pd.read_parquet(processed_dir / "prices_clean.parquet")
+    predictions   = pd.read_parquet(processed_dir / "predictions.parquet")
+    labels        = pd.read_parquet(processed_dir / "labels.parquet")
+    features      = pd.read_parquet(processed_dir / "features.parquet")
+    prices        = pd.read_parquet(processed_dir / "prices_clean.parquet")
 
     # Sector map: ticker → GICS sector (cached so reruns are instant)
     sector_cache = Path(cfg["data"]["raw_dir"]) / "sectors.parquet"
@@ -63,31 +63,28 @@ def main() -> None:
     for sec, cnt in sectors.value_counts().items():
         logger.info("  %-35s %d", sec, cnt)
 
-    # Market regime: equal-weight universe price index vs 200-day SMA.
-    # Using a strict prior-bar look-up in run_backtest prevents any look-ahead.
-    mkt_index   = prices.mean(axis=1)
-    regime      = mkt_index > mkt_index.rolling(200).mean()
-    regime.index = pd.to_datetime(regime.index)
-    invested_pct = regime.mean()
-    logger.info("Market regime: in-market %.0f%% of days (200d SMA filter)", 100 * invested_pct)
-
     horizon = cfg["labels"]["horizon_days"]
     periods_per_year = int(round(252 / horizon))
-    logger.info("Running backtest (costs: %d bps, long-only, %d-day hold, 200d regime) ...",
+    logger.info("Running backtest (costs: %d bps, long-only, %d-day hold, no regime filter) ...",
                 costs_bps, horizon)
-    # sectors kwarg available for sector-neutral construction; omitted here because
-    # the model's quality signals (roe, gross_prof) carry genuine sector-timing
-    # information that neutralisation would remove at cost of ~0.54 Sharpe
-    # (re-verified after trimming to 5 features; was ~0.27 with the original 8).
-    port_returns = run_backtest(predictions, labels, costs_bps=costs_bps,
-                                long_only=True, regime=regime)
+    # No regime/market-timing filter: a 200d-SMA cash overlay was tested and
+    # dropped -- once built on a correct equal-weight return index (see
+    # src/backtest/sensitivity.py and equal_weight_index()), it reduced Sharpe
+    # in every configuration tested (with the model: 0.705 -> 0.519; on a
+    # naive equal-weight benchmark: 0.570 -> 0.472). The model's own signal
+    # outperforms with no timing overlay at all.
+    #
+    # sectors kwarg available for sector-neutral construction; omitted here
+    # because the model's quality signals (roe, gross_prof) carry genuine
+    # sector-timing information that neutralisation would remove at cost of
+    # ~0.54 Sharpe (re-verified after trimming to 5 features; was ~0.27 with
+    # the original 8).
+    port_returns = run_backtest(predictions, labels, costs_bps=costs_bps, long_only=True)
 
-    pct_invested = port_returns["in_regime"].mean()
     metrics = compute_metrics(port_returns, periods_per_year=periods_per_year)
     logger.info("Performance summary:")
     for k, v in metrics.items():
         logger.info("  %-16s %s", k, v)
-    logger.info("  pct_in_market    %.1f%%", 100 * pct_invested)
 
     ic = information_coefficient(predictions, labels)
     logger.info("IC  mean=%.4f  std=%.4f  pct>0=%.1f%%  t-stat=%.2f",
