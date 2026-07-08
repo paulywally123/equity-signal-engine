@@ -18,7 +18,7 @@ import pandas as pd
 
 logger = logging.getLogger(__name__)
 
-PRICE_FEATURE_COLS = ["mom_12_1", "mom_6_1", "high_52w", "vol_21", "dollar_vol_60"]
+PRICE_FEATURE_COLS = ["mom_12_1", "dollar_vol_60"]
 FUND_FEATURE_COLS  = ["gross_prof", "roe", "ep_ratio"]
 
 # Resolved at training time: include only columns actually present in the panel
