@@ -89,7 +89,20 @@ def walk_forward_predict(
 
     for year in sorted(test_dates.year.unique()):
         year_start = pd.Timestamp(f"{year}-01-01")
-        train = data[data.index.get_level_values("date") < year_start]
+        train_dates = data.index.get_level_values("date")
+        train_mask = train_dates < year_start
+
+        # Embargo: rebalance dates are spaced exactly horizon_days trading
+        # days apart, so the single most recent pre-cutoff date has a label
+        # (forward return) that resolves at approximately the same time as
+        # the first test date of `year` -- training on it would mean the
+        # model saw an outcome that wasn't actually knowable yet as of the
+        # first test prediction. Purge that one date.
+        if train_mask.any():
+            last_train_date = train_dates[train_mask].max()
+            train_mask &= train_dates < last_train_date
+
+        train = data[train_mask]
 
         if len(train) < 50:
             logger.warning("Year %d: only %d training rows — skipping", year, len(train))

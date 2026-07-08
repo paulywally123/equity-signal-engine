@@ -7,13 +7,13 @@ universe with an overfitting-resistant walk-forward backtest.
 
 | Metric | Value |
 |---|---|
-| Sharpe ratio | **0.705** |
-| CAGR | **10.6%** |
-| Ann. volatility | 16.2% |
-| Max drawdown | -29.8% |
-| Hit rate | 70.4% |
-| IC (model vs realized) | +0.0047 (t = 0.46) |
-| Excess return vs equal-weight BM | +1.92% / yr |
+| Sharpe ratio | **0.665** |
+| CAGR | **10.0%** |
+| Ann. volatility | 16.5% |
+| Max drawdown | -31.4% |
+| Hit rate | 67.5% |
+| IC (model vs realized) | +0.0050 (t = 0.48) |
+| Excess return vs equal-weight BM | +1.46% / yr |
 | Backtest period | 2013 – 2026 (169 periods) |
 | Universe | Full point-in-time S&P 500 (607 current members, 814 ever-members) |
 
@@ -36,8 +36,8 @@ cross-sectional model. This breaks it apart:
 |---|---|---|---|---|---|
 | (a) Equal-weight buy-and-hold, no regime, no model | 0.570 | 9.83% | 17.25% | -37.8% | 8.60% |
 | (b) Equal-weight + 200d regime filter, no model | 0.472 | 5.35% | 11.33% | -22.5% | 4.80% |
-| **(c) Model portfolio, no regime filter (current default)** | **0.705** | **11.43%** | 16.22% | -29.8% | **10.57%** |
-| (d) Model + 200d regime filter | 0.519 | 5.94% | 11.46% | -23.6% | 5.41% |
+| **(c) Model portfolio, no regime filter (current default)** | **0.665** | **10.97%** | 16.50% | -31.4% | **10.00%** |
+| (d) Model + 200d regime filter | 0.471 | 5.41% | 11.50% | -25.3% | 4.84% |
 
 Two things this shows plainly:
 
@@ -79,6 +79,7 @@ see **Sensitivity summary**.
 - [x] **6c** Fixed regime index (price-weighted → equal-weight return) and dropped the regime filter given the decomposition above
 - [x] **6d** Fixed live signal generation always lagging ~1 rebalance cycle behind reality regardless of data freshness (`predict_latest()` in `src/models/model.py`)
 - [x] **6e** Alpaca paper-trading integration (`src/trading/`) — dry-run by default, equal-weight rebalance to the model's top-N
+- [x] **6f** Fixed walk-forward embargo gap — see Key design decisions
 
 ## Feature set (5 features, all rank-normalised cross-sectionally)
 
@@ -98,16 +99,16 @@ why that specific decision has a methodology caveat of its own.
 None of these individually clears a conventional significance bar, and with
 5+ features tested, `roe`'s t=1.34 shouldn't be read as a standout finding —
 it's what you'd expect to see somewhere in this set by chance alone. The
-model's IC (t=0.46, combining all features nonlinearly via LightGBM) is the
+model's IC (t=0.48, combining all features nonlinearly via LightGBM) is the
 number that actually matters, and it's modest.
 
 ## Sensitivity summary
 
 | Dimension | Sharpe range | Baseline |
 |---|---|---|
-| top_q (0.10 – 0.30) | 0.645 – 0.738 | 0.705 (top_q=0.20) |
-| costs_bps (5 – 20) | 0.670 – 0.723 | 0.705 (10 bps) |
-| regime window (100 – 250d, vs. no filter) | 0.413 – 0.591 | **0.705 (no filter — best of all options)** |
+| top_q (0.10 – 0.30) | 0.632 – 0.749 | 0.665 (top_q=0.20) |
+| costs_bps (5 – 20) | 0.633 – 0.681 | 0.665 (10 bps) |
+| regime window (100 – 250d, vs. no filter) | 0.391 – 0.537 | **0.665 (no filter — best of all options)** |
 
 Unlike the pre-fix version of this table, the baseline (no regime filter) is
 no longer sitting at a suspicious optimum within its own sweep — adding *any*
@@ -145,11 +146,13 @@ NaN, preventing survivorship bias.
 
 **Walk-forward evaluation**: model re-fits annually on an expanding training
 window. No hyperparameters are tuned on test data — the biggest silent risk in
-rolling-window backtests. Known gap: the last ~20 trading days of each
-training window have labels that resolve at roughly the same time as the
-first test predictions of the following year, i.e. close to zero embargo at
-each of the 13 annual boundaries. Not yet purged; likely small effect (affects
-the margin of ~13/169 periods) but not yet quantified.
+rolling-window backtests. The rebalance grid is spaced exactly `horizon_days`
+trading days apart, so the single most recent pre-cutoff training date has a
+label that resolves at approximately the same time as the first test date of
+the following year — near-zero embargo at each of the 13 annual boundaries.
+That date is now purged from each year's training set (`model.py`,
+`walk_forward_predict`). Effect was real but small: Sharpe 0.705 → 0.665,
+CAGR 10.57% → 10.0%.
 
 **Ranked training labels**: forward returns are converted to cross-sectional
 percentile ranks [0, 1] for model training, giving a stable target distribution
@@ -178,7 +181,6 @@ for fast local iteration only, not a claim about signal quality.
 
 ## Known limitations (not yet addressed)
 
-- **Walk-forward embargo gap** at annual refit boundaries — see above.
 - **No formal null baseline.** With IC this weak, a permutation/Monte Carlo
   null (shuffle labels, rerun, see where the actual IC falls) would give a
   real p-value instead of relying on a t-stat that assumes independent
