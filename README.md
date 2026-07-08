@@ -98,6 +98,33 @@ universe, walk-forward validation, EDGAR integration) surfacing a weak signal
 that is suggestive but not statistically confirmed** — not a validated
 trading edge.
 
+**Feature selection was in-sample — tested whether fixing that changes the
+conclusion; it doesn't.** Both the original 8→5 trim and the earlier Phase 4b
+pruning used IC measured over the same 2013–2026 span the backtest reports
+performance over. To check the impact, re-derived a feature set using
+*only* pre-2020 IC (a proper held-out selection window): under the same
+threshold rule, only `mom_12_1` and `roe` survive — `dollar_vol_60`, one of
+the 5 currently used, actually shows *negative* IC pre-2020 (t=-0.16) despite
+being the strongest feature in the 2020-2026 period (t=1.43). Individual
+feature IC is that unstable across sub-periods; several features flip sign
+entirely (`mom_1`: t=-2.00 pre-2020 → t=+0.90 after; `rsi_14`: t=-1.96 →
+t=+0.93).
+
+Compared honestly on the true 2020-2026 holdout (never used to select either
+feature set):
+
+| Feature set | Full-period Sharpe / IC t | Holdout-only Sharpe / IC t |
+|---|---|---|
+| 5-feature (in-sample selected, current default) | 0.665 / 0.48 | 0.477 / **0.18** |
+| 2-feature (honestly selected, pre-2020 only) | 0.627 / 0.22 | 0.426 / **-0.54** |
+
+The honestly-selected set doesn't generalize better — it's worse on the true
+holdout. Kept the 5-feature set as the default, since switching doesn't
+objectively improve anything measurable. The real conclusion isn't "5 vs 2
+features" — it's that the underlying signal is too weak for feature selection
+to meaningfully discriminate at all, which is the same conclusion the
+permutation test already reached from a different angle.
+
 ## Phases completed
 
 - [x] **2a** Point-in-time S&P 500 universe (Wikipedia change log, backward reconstruction)
@@ -121,6 +148,7 @@ trading edge.
 - [x] **6f** Fixed walk-forward embargo gap — see Key design decisions
 - [x] **6g** Dev-mode robustness test against random 100-ticker subsets — see Dev mode section
 - [x] **6h** Momentum-only baseline and permutation null test — see Statistical significance
+- [x] **6i** Investigated in-sample feature pruning via held-out selection window — see Statistical significance
 
 ## Feature set (5 features, all rank-normalised cross-sectionally)
 
@@ -234,14 +262,6 @@ nearly 2x Sharpe spread (0.54–0.89) purely from which 100 companies happen to
 be in the sample. Dev mode was never a stable estimate of anything, for any
 100-ticker subset — full mode is the only credible number to report; dev mode
 is for fast local iteration only.
-
-## Known limitations (not yet addressed)
-
-- **Feature pruning was in-sample.** Both the original 8→5 trim this session
-  and the earlier Phase 4b pruning were decided using IC measured over the
-  *same* 2013–2026 span the backtest reports performance over — textbook
-  in-sample feature selection. A held-out window for feature decisions would
-  fix this; not yet done.
 
 ## Survivorship bias handling
 

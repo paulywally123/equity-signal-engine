@@ -8,8 +8,12 @@ import pytest
 
 from src.models.model import PRICE_FEATURE_COLS, _apply_dev_filter, walk_forward_predict
 
-# Tests use price-only features so the fixture doesn't need a fundamentals panel
-FEATURE_COLS = PRICE_FEATURE_COLS
+# Tests use price-only features so the fixture doesn't need a fundamentals panel.
+# dollar_vol_60 is always included regardless of PRICE_FEATURE_COLS -- in
+# production it's a universe-filtering column for _apply_dev_filter/dev mode,
+# independent of whether the model actually trains on it as a feature (see
+# features.parquet, which always has it).
+FEATURE_COLS = sorted(set(PRICE_FEATURE_COLS) | {"dollar_vol_60"})
 
 
 # ---------------------------------------------------------------------------
