@@ -115,6 +115,37 @@ This is the most direct answer yet to "isn't this just momentum beta in ML
 clothing?" — yes, and once you control for that, there's no stock-picking
 skill left to find.
 
+## Sector exposure: is this just long tech?
+
+The RMW/MOM factor loadings above predict a quality+momentum tilt that, over
+this sample, would concentrate in tech. Measured directly — long-leg
+(top-20%) sector weights vs. the full equal-weight universe:
+
+| Sector | Long leg | Universe | Tilt |
+|---|---|---|---|
+| Technology | 20.6% | 13.2% | **+7.5pp** |
+| Consumer Defensive | 11.0% | 7.6% | +3.4pp |
+| Healthcare | 14.1% | 11.9% | +2.2pp |
+| Consumer Cyclical | 14.5% | 13.1% | +1.4pp |
+| Industrials | 15.1% | 14.1% | +1.0pp |
+| Basic Materials | 4.3% | 4.4% | -0.1pp |
+| Communication Services | 3.2% | 4.2% | -1.0pp |
+| Energy | 1.5% | 4.6% | -3.1pp |
+| Utilities | 2.8% | 6.3% | -3.4pp |
+| Real Estate | 3.6% | 6.1% | -2.5pp |
+| Financial Services | 9.0% | 14.0% | **-5.0pp** |
+
+Answer: tilted toward tech (~1.5x overweight), underweight financials and
+utilities, but not "all in tech" — the largest single sector is still only
+~21% of the book. Re-ran the backtest with sector-neutral construction
+(equal representation by sector, `sectors` kwarg in `run_backtest`) on the
+current model: **Sharpe drops from 0.665 to 0.53** (by 0.135, not to 0.135
+— an earlier version of this note was ambiguous about that). Some of the
+model's apparent edge is sector positioning, not pure within-sector stock
+selection, though less than a mid-session estimate (0.54) suggested — that
+number was measured on a since-fixed, buggier configuration and was never
+updated until now.
+
 ## Statistical significance: is this distinguishable from luck?
 
 **Block-bootstrap CI on the headline comparison.** The Results table states
@@ -280,7 +311,7 @@ engineered from a result.
 - [x] **3c** Walk-forward LightGBM model — annual re-fit, no hyperparameter tuning on test data (`src/models/`)
 - [x] **3d** Long-only backtest + equity curve report (`src/backtest/`, `src/report/`)
 - [x] **4a** SEC EDGAR fundamental data — point-in-time observations, 2007–2026 (`src/data/edgar.py`)
-- [x] **4b** Feature pruning; sector-neutral construction (available, not default — costs ~0.54 Sharpe, see Known Limitations on selection methodology)
+- [x] **4b** Feature pruning; sector-neutral construction (available, not default — costs 0.135 Sharpe on the current model, see Sector exposure)
 - [x] **5a** Annual attribution tearsheet + sector exposure + worst/best periods (`src/report/attribution.py`)
 - [x] **5b** Sensitivity analysis — top_q, cost assumptions, regime window (`src/backtest/sensitivity.py`)
 - [x] **5c** Live signal generation — current ranked portfolio (`src/signal/`)
@@ -300,13 +331,15 @@ engineered from a result.
 - [x] **6m** Full-strategy Sharpe permutation null (1,000 random rankings, exact portfolio construction + costs) — see Statistical significance
 - [x] **6n** Fama-French 5 + momentum factor regression — see Factor regression
 - [x] **6o** Block-bootstrap CI on the headline excess-return/Sharpe-gap claims — see Statistical significance
+- [x] **6p** Sector exposure table + re-verified sector-neutral Sharpe cost (0.54 -> 0.135 on the current model) — see Sector exposure
 
 ## Feature set (5 features, all rank-normalised cross-sectionally)
 
 Started at 8; `mom_3`, `mom_1`, `rsi_14` were excluded from training from the
 start (negative individual IC). `mom_6_1`, `high_52w`, `vol_21` were later
-dropped after measuring ~zero individual IC — see **Known Limitations** for
-why that specific decision has a methodology caveat of its own.
+dropped after measuring ~zero individual IC — see **Statistical
+significance** ("Feature selection was in-sample") for why that specific
+decision has a methodology caveat of its own.
 
 | Feature | Type | IC | t-stat |
 |---|---|---|---|

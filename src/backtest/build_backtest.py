@@ -76,9 +76,12 @@ def main() -> None:
     #
     # sectors kwarg available for sector-neutral construction; omitted here
     # because the model's quality signals (roe, gross_prof) carry genuine
-    # sector-timing information that neutralisation would remove at cost of
-    # ~0.54 Sharpe (re-verified after trimming to 5 features; was ~0.27 with
-    # the original 8).
+    # sector-timing information that neutralisation would remove. Sharpe
+    # drops BY 0.135 (0.665 -> 0.53) with sector-neutral construction on the
+    # current full-universe, embargo-fixed, no-regime model -- re-verify if
+    # the model changes, this number moves a lot (was ~0.54 mid-session
+    # under an earlier, buggier configuration). See README, Factor
+    # regression / sector exposure.
     port_returns = run_backtest(predictions, labels, costs_bps=costs_bps, long_only=True)
 
     metrics = compute_metrics(port_returns, periods_per_year=periods_per_year)
