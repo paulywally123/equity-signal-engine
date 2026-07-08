@@ -33,7 +33,7 @@ def main() -> None:
     processed_dir = Path(cfg["data"]["processed_dir"])
     raw_dir       = Path(cfg["data"]["raw_dir"])
 
-    predictions = pd.read_parquet(processed_dir / "predictions.parquet")
+    predictions = pd.read_parquet(processed_dir / "live_predictions.parquet")
     features    = pd.read_parquet(processed_dir / "features.parquet")
 
     # Load cached sector map

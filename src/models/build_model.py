@@ -12,7 +12,7 @@ from pathlib import Path
 import pandas as pd
 import yaml
 
-from src.models.model import walk_forward_predict
+from src.models.model import predict_latest, walk_forward_predict
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
@@ -51,6 +51,19 @@ def main() -> None:
         out,
         len(predictions),
         predictions.index.get_level_values("date").nunique(),
+    )
+
+    # Genuinely current signal: scores the latest feature date(s) that don't
+    # yet have a resolved forward-return label. walk_forward_predict above
+    # can never do this -- see predict_latest's docstring.
+    live_predictions = predict_latest(features, labels, dev_top_n=dev_top_n)
+    live_out = processed_dir / "live_predictions.parquet"
+    live_predictions.to_parquet(live_out)
+    logger.info(
+        "Wrote %s  (%d predictions, latest date=%s)",
+        live_out,
+        len(live_predictions),
+        live_predictions.index.get_level_values("date").max().date(),
     )
 
 

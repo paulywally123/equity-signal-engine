@@ -110,3 +110,50 @@ def walk_forward_predict(
         raise RuntimeError("No predictions produced — check date range and initial_train_end")
 
     return pd.concat(predictions).sort_index()
+
+
+def predict_latest(
+    features: pd.DataFrame,
+    labels: pd.DataFrame,
+    params: dict = PARAMS,
+    dev_top_n: int | None = None,
+) -> pd.DataFrame:
+    """Score the most recent feature date(s) that don't yet have a resolved
+    forward-return label.
+
+    walk_forward_predict only ever scores dates that survive an inner join
+    with labels -- by construction it can never produce a score newer than
+    (latest price date - horizon_days), since a label needs that much future
+    price history to exist at all. That's correct for backtesting but means
+    it can never represent a genuinely current signal. This fits on every
+    labeled observation available (same expanding-window discipline as the
+    final year of walk_forward_predict) and scores whatever feature rows
+    exist beyond the last labeled date -- the actual "right now."
+
+    Returns
+    -------
+    DataFrame with MultiIndex (date, ticker) and column 'score', for date(s)
+    strictly after the last labeled date.
+    """
+    labeled = features.join(labels, how="inner").dropna(subset=["fwd_return"])
+    if dev_top_n is not None:
+        labeled = _apply_dev_filter(labeled, top_n=dev_top_n)
+
+    feat_cols = [c for c in FEATURE_COLS if c in labeled.columns]
+
+    model = lgb.LGBMRegressor(**params)
+    model.fit(labeled[feat_cols], labeled["fwd_return"])
+
+    last_labeled_date = labeled.index.get_level_values("date").max()
+    unlabeled = features[features.index.get_level_values("date") > last_labeled_date]
+    if dev_top_n is not None:
+        unlabeled = _apply_dev_filter(unlabeled, top_n=dev_top_n)
+
+    if unlabeled.empty:
+        raise RuntimeError(
+            "No feature dates found after the last labeled date "
+            f"({last_labeled_date.date()}) -- nothing new to score."
+        )
+
+    scores = model.predict(unlabeled[feat_cols])
+    return pd.DataFrame({"score": scores}, index=unlabeled.index).sort_index()
