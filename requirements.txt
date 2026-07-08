@@ -9,3 +9,5 @@ matplotlib==3.10.0
 PyYAML==6.0.2
 pytest==8.3.4
 lxml==5.3.0          # pd.read_html backend for Wikipedia parsing
+alpaca-py==0.33.1    # paper-trading execution
+python-dotenv==1.0.1 # load ALPACA_* keys from .env (never committed)
