@@ -70,6 +70,99 @@ def _construct_weights(
     return weights
 
 
+def vol_target_exposure(
+    returns: pd.DataFrame,
+    target_vol: float,
+    window: int = 20,
+    max_exposure: float = 1.0,
+) -> pd.Series:
+    """Continuous exposure scale in [0, max_exposure] from trailing realized vol.
+
+    Unlike a binary regime filter (fully in or fully flat), this shrinks
+    position size smoothly as the equal-weight index's trailing realized
+    volatility rises above `target_vol`, and holds `max_exposure` (capped at
+    1.0 by default -- no leverage) when realized vol is at or below target.
+    The portfolio is never fully out, so it can't miss a sharp post-selloff
+    recovery entirely the way a binary in/out filter can -- it's just
+    smaller sized during the stressed period.
+
+    Sampled from the most recent prior bar at each use site (see
+    `run_backtest`'s `exposure` param), so there is no look-ahead.
+    """
+    daily = returns.mean(axis=1)
+    realized_vol = daily.rolling(window).std() * np.sqrt(252)
+    exposure = (target_vol / realized_vol).clip(upper=max_exposure).fillna(max_exposure)
+    exposure.index = pd.to_datetime(exposure.index)
+    return exposure
+
+
+def trend_exposure(
+    returns: pd.DataFrame,
+    window: int,
+    floor: float = 0.0,
+) -> pd.Series:
+    """Two-level exposure from a trend filter: 1.0 above the SMA, `floor` below it.
+
+    Generalises the binary 200d regime filter (floor=0.0, fully out) into a
+    tunable partial-exposure version (floor=0.5, half-sized rather than
+    flat) so the CAGR given up for a given amount of drawdown reduction is
+    an explicit, chosen dial rather than an all-or-nothing switch.
+    """
+    idx = equal_weight_index(returns)
+    above = idx > idx.rolling(window).mean()
+    exposure = above.astype(float).where(above, floor)
+    exposure.index = pd.to_datetime(exposure.index)
+    return exposure
+
+
+def drawdown_trigger_exposure(
+    returns: pd.DataFrame,
+    lookback: int,
+    threshold: float,
+    floor: float = 0.0,
+) -> pd.Series:
+    """Fast tail-only trigger: `floor` exposure only when the equal-weight
+    index has fallen more than `threshold` from its trailing `lookback`-day
+    peak; 1.0 otherwise.
+
+    A genuinely different design from `trend_exposure`'s 200-250 day SMA:
+    that filter is slow to re-enter after a rally (a long moving average
+    takes months to turn back up), which is exactly what cost it the COVID
+    holdout (see drawdown_cap_holdout.py). This uses the same short lookback
+    window in both directions, so it re-arms as soon as the market has
+    actually recovered rather than waiting on a lagging average -- intended
+    to fire only on genuinely sharp drawdowns (tail risk) rather than
+    ordinary trend dips, while not being structurally slow to un-fire.
+    """
+    idx = equal_weight_index(returns)
+    trailing_peak = idx.rolling(lookback, min_periods=1).max()
+    dd = idx / trailing_peak - 1.0
+    exposure = pd.Series(1.0, index=idx.index)
+    exposure[dd < -threshold] = floor
+    exposure.index = pd.to_datetime(exposure.index)
+    return exposure
+
+
+def level_trigger_exposure(
+    indicator: pd.Series,
+    threshold: float,
+    floor: float = 0.0,
+) -> pd.Series:
+    """`floor` exposure when an external indicator (e.g. VIX, credit spread)
+    is above `threshold`; 1.0 otherwise.
+
+    Unlike `trend_exposure` / `drawdown_trigger_exposure`, `indicator` is not
+    derived from this strategy's own price/return history at all -- it's an
+    independent, real-time-observable market signal, sampled the same
+    no-look-ahead way (`run_backtest`'s `exposure` param looks up the most
+    recent prior bar).
+    """
+    exposure = pd.Series(1.0, index=indicator.index)
+    exposure[indicator > threshold] = floor
+    exposure.index = pd.to_datetime(exposure.index)
+    return exposure
+
+
 def run_backtest(
     predictions: pd.DataFrame,
     labels: pd.DataFrame,
@@ -78,6 +171,7 @@ def run_backtest(
     long_only: bool = False,
     regime: pd.Series | None = None,
     sectors: pd.Series | None = None,
+    exposure: pd.Series | None = None,
 ) -> pd.DataFrame:
     """Compute per-period gross and net returns.
 
@@ -90,6 +184,11 @@ def run_backtest(
     regime      : optional boolean Series indexed by date; True = invest,
                   False = flat (cash).  Regime is sampled from the most
                   recent prior bar so there is no look-ahead.
+    exposure    : optional float Series indexed by date, in [0, 1]; scales
+                  position size continuously instead of the binary in/out
+                  of `regime` (see `vol_target_exposure`). Sampled from the
+                  most recent prior bar, no look-ahead. Composable with
+                  `regime` -- both are applied if both are given.
 
     Returns
     -------
@@ -109,10 +208,17 @@ def run_backtest(
             if len(past):
                 in_regime = bool(past.iloc[-1])
 
+        # Vol-target exposure: same no-look-ahead lookup, continuous scale
+        exp_scale = 1.0
+        if exposure is not None:
+            past_exp = exposure[exposure.index < date]
+            if len(past_exp):
+                exp_scale = float(past_exp.iloc[-1])
+
         if in_regime:
             scores  = predictions.xs(date, level="date")["score"]
             weights = _construct_weights(scores, top_q, long_only=long_only,
-                                         sectors=sectors)
+                                         sectors=sectors) * exp_scale
         else:
             # Flat / cash — zero weights, pay liquidation cost if we were invested
             scores  = predictions.xs(date, level="date")["score"]
@@ -144,6 +250,7 @@ def run_backtest(
             "long_return":  long_ret,
             "short_return": short_ret,
             "in_regime":    in_regime,
+            "exposure":     exp_scale,
             "turnover":     turnover,
         })
         prev_weights = weights

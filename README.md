@@ -10,6 +10,7 @@ universe with an overfitting-resistant walk-forward backtest.
 [Factor regression](#factor-regression-is-this-just-known-factor-exposure) ·
 [Sector exposure](#sector-exposure-is-this-just-long-tech) ·
 [Statistical significance](#statistical-significance-is-this-distinguishable-from-luck) ·
+[Market-timing overlay](#market-timing-overlay-five-attempts-to-reduce-drawdown-none-survive-validation) ·
 [Phases completed](#phases-completed) ·
 [Feature set](#feature-set-5-features-all-rank-normalised-cross-sectionally) ·
 [Sensitivity summary](#sensitivity-summary) ·
@@ -328,6 +329,149 @@ code and cached data remain in the repo if a differently-motivated
 construction is worth testing later, decided in advance rather than reverse-
 engineered from a result.
 
+## Market-timing overlay: five attempts to reduce drawdown, none survive validation
+
+The Decomposition section above already found that a 200-day SMA regime
+filter reduces Sharpe in every configuration tested. Given the strategy is
+long-only with ~1.0 market beta (see Factor regression) and offers no
+protection of its own in a falling market — 2018: -5.95% ann. return, -17.2%
+max DD; 2020 COVID: -31.4% max DD, the worst drawdown in the whole backtest;
+2022: -8.5% ann. return, -19.6% max DD (annual attribution,
+`src.report.attribution`) — the natural next question is whether *any*
+design can teach it to reduce exposure in a bad market without giving back
+more than it saves.
+
+Five conceptually different designs were tried, each validated the same way
+the feature-selection check above was: select parameters using *only*
+pre-2020 periods (88 of the 169), then evaluate that one chosen config on
+the true 2020-2026 holdout (81 periods, containing both the COVID crash and
+the 2022 bear market) it never saw. All five functions
+(`vol_target_exposure`, `trend_exposure`, `drawdown_trigger_exposure`,
+`level_trigger_exposure` in `src/backtest/backtest.py`) and their sweep
+scripts remain in the repo, available but **not used by default** — same
+status as the pre-existing `regime`/`sectors` kwargs. Nothing about the live
+paper-trading accounts changed as a result of this investigation.
+
+**1. Binary 200-day trend filter.** Already covered above: full exit to
+cash below the 200d SMA. Sharpe 0.665 → 0.471, CAGR 10.0% → 4.84%, max DD
+-31.4% → -25.3%. Rejected — costs more than it saves on a full-sample
+basis, before even reaching the holdout-validation question the other four
+went through.
+
+**2. Continuous vol-target exposure** (`vol_scaling.py`). Rather than a
+binary switch, scale position size continuously so trailing realized vol
+tracks a target — the portfolio is never fully out, so it can't miss a
+recovery entirely the way a binary exit can.
+
+| target_vol | best window | Sharpe | CAGR | max DD | avg exposure |
+|---|---|---|---|---|---|
+| 12% | 10d | 0.585 | 6.47% | -22.3% | 84% |
+| 16.5% (≈ baseline realized vol) | 10d | 0.636 | 8.12% | -27.1% | 93% |
+| 20% | 10d | 0.661 | 8.80% | -26.8% | 96% |
+| **Baseline (no overlay)** | — | **0.665** | **10.00%** | **-31.4%** | 100% |
+
+No configuration across the full 3×3 grid beats the no-overlay baseline.
+Bad-year detail for the best config (target_vol=20%, window=10d): 2020's
+max DD improves (-31.4% → -20.2%) but its return is roughly halved (+15.1%
+→ +8.5%) — the exact whipsaw problem continuous scaling was meant to avoid,
+just softened rather than eliminated; 2022 gets worse on both counts (-8.5%
+→ -13.1% return) because that bear market was a slow grind, not an early
+vol spike, so the signal didn't react in time but still clipped 2022-10-18
+(one of the five best individual periods in the entire 13-year backtest).
+Rejected.
+
+**3. Partial trend filter — a tunable floor** (`drawdown_cap.py`,
+`drawdown_cap_holdout.py`). Generalises #1: instead of fully exiting below
+the 200d trend, keep a `floor` fraction of exposure (0-95%). Swept 4
+windows × 11 floors (44 configs) on the full sample:
+
+| Config | Sharpe | CAGR | max DD | Calmar (CAGR / \|DD\|) |
+|---|---|---|---|---|
+| **Baseline (no filter)** | 0.665 | 10.00% | -31.4% | 0.318 |
+| window=200, floor=0.0 (= attempt #1) | 0.471 | 4.84% | -25.3% | 0.191 |
+| window=250, floor=0.70 | **0.672** | 8.88% | -25.6% | **0.347** |
+| window=250, floor=0.75-0.80 | 0.672 | 9.1-9.3% | -26.4 to -27.4% | 0.34 |
+
+A plateau at window=250, floor≈0.65-0.85 dominated the baseline on *both*
+Sharpe and Calmar while cutting max DD by ~5 points — looked like a genuine
+improvement, not just a tradeoff. **It didn't survive honest re-selection.**
+Picking (window, floor) using only pre-2020 data (ranked by Calmar) chose
+window=250, **floor=0.0** — the full binary exit, not the partial plateau
+above — because pre-2020's bad stretches (2015, 2018) were mild enough that
+a full exit's whipsaw cost was small there. Tested on the 2020-2026
+holdout:
+
+| | Sharpe | CAGR | max DD | Calmar |
+|---|---|---|---|---|
+| Baseline, holdout | **0.478** | 7.61% | -31.4% | **0.242** |
+| Honestly-selected (250, floor=0.0), holdout | 0.170 | 1.36% | -27.0% | 0.050 |
+| In-sample pick (250, floor=0.75), holdout | 0.444 | 6.24% | -26.4% | 0.236 |
+
+Both underperform the no-filter baseline out of sample — the
+honestly-selected config collapses (Calmar 0.242 → 0.050) because it
+happened to optimize for ordinary corrections, then met the fastest
+crash-and-V-recovery in the whole dataset. The full-sample "plateau" that
+looked robust was fit to the same data it was evaluated on. Rejected.
+
+**4. Fast tail-drawdown trigger** (`tail_trigger_holdout.py`). A
+structurally different design: instead of a slow 200-250 day trend (slow
+to re-enter after a rally), react to the index's drawdown from its own
+trailing peak over a *short* window (10-40 days), so it re-arms as soon as
+the market actually recovers. Swept lookback ∈ {10,20,40} × threshold ∈
+{8,10,15,20%} × floor ∈ {0, 0.5}, selected on pre-2020 (best: lookback=40,
+threshold=8%, floor=0.5), evaluated on holdout:
+
+| | Sharpe | CAGR | max DD | Calmar |
+|---|---|---|---|---|
+| Baseline, holdout | **0.478** | 7.61% | -31.4% | **0.242** |
+| Honestly-selected trigger, holdout | 0.421 | 5.52% | -26.4% | 0.209 |
+
+Closest of the five attempts to breaking even, and it does cut 2020's max
+DD (-31.4% → -21.4%), but still underperforms baseline on Sharpe and
+Calmar, and makes 2022 worse (-8.5% → -13.3% return for almost no drawdown
+improvement there). Rejected.
+
+**5. Independent macro signals — VIX and credit spreads**
+(`macro_data.py`, `macro_trigger_holdout.py`). The first signal *not*
+derived from this strategy's own price/return history at all — pulled from
+FRED (free, no API key). VIX (`VIXCLS`) has full history back to 1990. The
+obvious credit-spread choice, ICE BofA US High Yield OAS
+(`BAMLH0A0HYM2`), turned out to be capped by FRED/ICE's licensing terms to
+a rolling ~3-year window regardless of the requested start date (confirmed
+empirically — returns the same ~795 rows starting 2023-07 no matter what
+`cosd` is passed), which would silently drop the entire pre-2020 selection
+window and the COVID crash. Used Moody's Baa corporate bond yield minus
+the 10-year Treasury (`BAA10Y`) instead — an unrestricted, standard
+credit-spread stress proxy with full history back to 1986.
+
+| | Sharpe | CAGR | max DD | Calmar |
+|---|---|---|---|---|
+| Baseline, holdout | **0.478** | 7.61% | -31.4% | **0.242** |
+| VIX (threshold=40, honestly selected), holdout | 0.409 | 6.01% | -31.4% | 0.191 |
+| BAA10Y (threshold=4.0, honestly selected), holdout | 0.478 | 7.61% | -31.4% | 0.242 |
+
+The BAA10Y config is identical to baseline to four decimal places — the
+honestly-selected threshold barely got touched even at the COVID peak (the
+spread topped out at 4.31 for essentially one day), so it never fired on a
+rebalance date. The VIX config did fire — and cost return — but **the max
+drawdown is unchanged to the decimal even though it fired.** That's the key
+finding: a genuinely independent, real-time, well-known stress indicator
+still can't help here, because the strategy only rebalances every 20
+trading days. The COVID crash and its sharpest rebound days (2020-04-03,
+2020-05-04) sat only 2-6 weeks apart — once a rebalance date cuts exposure,
+that decision is locked in for the full next holding period regardless of
+what any signal does three days later. No overlay can react faster than the
+schedule that acts on it, which is the structural reason all five designs —
+however different conceptually — converged on the same result. Rejected.
+
+**Conclusion.** This isn't five unlucky parameter choices; it's a
+consistent finding across price-trend, volatility, price-drawdown, and two
+independent macro signals. On this data, with a 20-trading-day rebalance
+cadence, there's no timing/exposure-reduction mechanism that reliably
+reduces drawdown without giving back more than it saves. Reducing exposure
+in a bad market, if it happens at all, is a decision to make at the
+account-allocation level, not something to encode into the model.
+
 ## Phases completed
 
 - [x] **2a** Point-in-time S&P 500 universe (Wikipedia change log, backward reconstruction)
@@ -361,6 +505,7 @@ engineered from a result.
 - [x] **6p** Sector exposure table + re-verified sector-neutral Sharpe cost (0.54 -> 0.135 on the current model) — see Sector exposure
 - [x] **6q** Benchmark hit rate, precise cost-drag math, log-scale equity curve, table of contents
 - [x] **6r** Pre-registered the live paper-trading evaluation protocol (horizon, metrics, confirmation/failure criteria) before any checkpoint was assessed
+- [x] **6s** Tested five market-timing/drawdown-reduction overlay designs (vol-target scaling, tunable partial trend filter, fast tail-drawdown trigger, VIX/credit-spread triggers) with honest pre-2020-selection/2020-2026-holdout validation on each; all either reduced Sharpe outright or failed holdout validation — see "Market-timing overlay" section. Root cause is structural (20-day rebalance cadence), not signal quality; none adopted, live accounts unaffected
 
 ## Feature set (5 features, all rank-normalised cross-sectionally)
 
@@ -416,6 +561,11 @@ py -m src.backtest.build_backtest            # prints attribution tearsheet
 py -m src.backtest.sensitivity               # parameter sensitivity table
 py -m src.backtest.build_factor_regression   # Fama-French 5 + momentum regression
 py -m src.backtest.build_bootstrap_ci        # block-bootstrap CI on excess return / Sharpe gap
+py -m src.backtest.vol_scaling               # vol-target exposure scaling sweep
+py -m src.backtest.drawdown_cap              # tunable partial trend-filter sweep
+py -m src.backtest.drawdown_cap_holdout      # honest pre-2020/2020-holdout validation of the above
+py -m src.backtest.tail_trigger_holdout      # fast tail-drawdown trigger, holdout-validated
+py -m src.backtest.macro_trigger_holdout     # VIX / credit-spread trigger, holdout-validated (fetches FRED data)
 py -m src.signal.build_live_signal           # today's portfolio holdings
 py -m src.signal.build_momentum_signal       # momentum-only baseline signal
 
