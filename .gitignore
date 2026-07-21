@@ -1,5 +1,6 @@
 data/raw/
 data/processed/
+weekly_rotation/data/
 __pycache__/
 *.pyc
 .ipynb_checkpoints/

@@ -1,0 +1,434 @@
+{
+  "date": "2026-07-21",
+  "synthetic": false,
+  "layer1": [
+    {
+      "ticker": "SMH",
+      "rank": 1,
+      "mom_12_1": 1.3097013741868593,
+      "above_200dma": true
+    },
+    {
+      "ticker": "XBI",
+      "rank": 2,
+      "mom_12_1": 0.7063885223985917,
+      "above_200dma": true
+    },
+    {
+      "ticker": "IWM",
+      "rank": 3,
+      "mom_12_1": 0.3605970898304205,
+      "above_200dma": true
+    },
+    {
+      "ticker": "EWJ",
+      "rank": 4,
+      "mom_12_1": 0.3929878963985107,
+      "above_200dma": true
+    },
+    {
+      "ticker": "IJH",
+      "rank": 5,
+      "mom_12_1": 0.22246297308591978,
+      "above_200dma": true
+    },
+    {
+      "ticker": "VEA",
+      "rank": 6,
+      "mom_12_1": 0.3064936921137962,
+      "above_200dma": true
+    },
+    {
+      "ticker": "XLK",
+      "rank": 7,
+      "mom_12_1": 0.47883767295491864,
+      "above_200dma": true
+    },
+    {
+      "ticker": "HYG",
+      "rank": 8,
+      "mom_12_1": 0.04990548428707742,
+      "above_200dma": true
+    },
+    {
+      "ticker": "XLE",
+      "rank": 9,
+      "mom_12_1": 0.310555547181139,
+      "above_200dma": true
+    },
+    {
+      "ticker": "PDBC",
+      "rank": 10,
+      "mom_12_1": 0.26734785726971544,
+      "above_200dma": true
+    },
+    {
+      "ticker": "VWO",
+      "rank": 11,
+      "mom_12_1": 0.2382725966231718,
+      "above_200dma": true
+    },
+    {
+      "ticker": "XLI",
+      "rank": 12,
+      "mom_12_1": 0.22224194131631791,
+      "above_200dma": true
+    },
+    {
+      "ticker": "GLD",
+      "rank": 13,
+      "mom_12_1": 0.2282118939123119,
+      "above_200dma": false
+    },
+    {
+      "ticker": "XLV",
+      "rank": 14,
+      "mom_12_1": 0.16470331446034447,
+      "above_200dma": true
+    },
+    {
+      "ticker": "ITA",
+      "rank": 15,
+      "mom_12_1": 0.2160695737787428,
+      "above_200dma": true
+    },
+    {
+      "ticker": "XLB",
+      "rank": 16,
+      "mom_12_1": 0.15924850316586103,
+      "above_200dma": true
+    },
+    {
+      "ticker": "LQD",
+      "rank": 17,
+      "mom_12_1": 0.04295968176393128,
+      "above_200dma": false
+    },
+    {
+      "ticker": "TIP",
+      "rank": 18,
+      "mom_12_1": 0.024590509583565456,
+      "above_200dma": false
+    },
+    {
+      "ticker": "IEF",
+      "rank": 19,
+      "mom_12_1": 0.02768895869443977,
+      "above_200dma": false
+    },
+    {
+      "ticker": "XLU",
+      "rank": 20,
+      "mom_12_1": 0.09419403494247414,
+      "above_200dma": true
+    },
+    {
+      "ticker": "XLRE",
+      "rank": 21,
+      "mom_12_1": 0.0842311059964771,
+      "above_200dma": true
+    },
+    {
+      "ticker": "TLT",
+      "rank": 22,
+      "mom_12_1": 0.042813405449768194,
+      "above_200dma": false
+    },
+    {
+      "ticker": "XLF",
+      "rank": 23,
+      "mom_12_1": 0.04091157171134174,
+      "above_200dma": true
+    },
+    {
+      "ticker": "XHB",
+      "rank": 24,
+      "mom_12_1": 0.08817613194909302,
+      "above_200dma": false
+    },
+    {
+      "ticker": "XLP",
+      "rank": 25,
+      "mom_12_1": 0.04425372362377611,
+      "above_200dma": true
+    },
+    {
+      "ticker": "XLY",
+      "rank": 26,
+      "mom_12_1": 0.037837411844811264,
+      "above_200dma": false
+    },
+    {
+      "ticker": "XLC",
+      "rank": 27,
+      "mom_12_1": 0.005519015538056449,
+      "above_200dma": false
+    }
+  ],
+  "layer2": {
+    "SMH": [
+      {
+        "ticker": "MU",
+        "rank": 1,
+        "mom_12_1": 9.713924298031092
+      },
+      {
+        "ticker": "LRCX",
+        "rank": 2,
+        "mom_12_1": 3.0476373349242607
+      },
+      {
+        "ticker": "AMAT",
+        "rank": 3,
+        "mom_12_1": 2.3480932512454746
+      },
+      {
+        "ticker": "ASML",
+        "rank": 4,
+        "mom_12_1": 1.701712561008736
+      },
+      {
+        "ticker": "AMD",
+        "rank": 5,
+        "mom_12_1": 2.5135669100816083
+      },
+      {
+        "ticker": "TSM",
+        "rank": 6,
+        "mom_12_1": 0.9796614815658802
+      },
+      {
+        "ticker": "TXN",
+        "rank": 7,
+        "mom_12_1": 0.5920209100449014
+      },
+      {
+        "ticker": "AVGO",
+        "rank": 8,
+        "mom_12_1": 0.37053946985137975
+      },
+      {
+        "ticker": "NVDA",
+        "rank": 9,
+        "mom_12_1": 0.21909138233341396
+      },
+      {
+        "ticker": "QCOM",
+        "rank": 10,
+        "mom_12_1": 0.42528136992249
+      }
+    ],
+    "XBI": [
+      {
+        "ticker": "UTHR",
+        "rank": 1,
+        "mom_12_1": 0.8364492247543873
+      },
+      {
+        "ticker": "INCY",
+        "rank": 2,
+        "mom_12_1": 0.5384388229082488
+      },
+      {
+        "ticker": "MRNA",
+        "rank": 3,
+        "mom_12_1": 0.9162093166438374
+      },
+      {
+        "ticker": "NBIX",
+        "rank": 4,
+        "mom_12_1": 0.2259727897471311
+      },
+      {
+        "ticker": "GILD",
+        "rank": 5,
+        "mom_12_1": 0.1832559664127147
+      },
+      {
+        "ticker": "SRPT",
+        "rank": 6,
+        "mom_12_1": 0.32507507679512737
+      },
+      {
+        "ticker": "REGN",
+        "rank": 7,
+        "mom_12_1": 0.12891401086548226
+      },
+      {
+        "ticker": "VRTX",
+        "rank": 8,
+        "mom_12_1": 0.018102943329916465
+      },
+      {
+        "ticker": "BMRN",
+        "rank": 9,
+        "mom_12_1": -0.011669021064129148
+      },
+      {
+        "ticker": "ALNY",
+        "rank": 10,
+        "mom_12_1": -0.10642077411935613
+      }
+    ]
+  },
+  "terminal_groups": [
+    "IWM"
+  ],
+  "top_groups": [
+    "SMH",
+    "XBI",
+    "IWM"
+  ],
+  "gate": {
+    "ok": true,
+    "blocking": [],
+    "warnings": [],
+    "dropped": {},
+    "proposed_target": [
+      "MU",
+      "LRCX",
+      "AMAT",
+      "ASML",
+      "AMD",
+      "UTHR",
+      "INCY",
+      "MRNA",
+      "NBIX",
+      "GILD",
+      "IWM"
+    ],
+    "clean_target": [
+      "MU",
+      "LRCX",
+      "AMAT",
+      "ASML",
+      "AMD",
+      "UTHR",
+      "INCY",
+      "MRNA",
+      "NBIX",
+      "GILD",
+      "IWM"
+    ],
+    "diagnostics": {
+      "latest_close": "2026-07-21",
+      "stale_bdays": 0,
+      "group_usable": {
+        "XLK": {
+          "usable": 10,
+          "of": 10,
+          "missing": []
+        },
+        "XLF": {
+          "usable": 10,
+          "of": 10,
+          "missing": []
+        },
+        "XLV": {
+          "usable": 10,
+          "of": 10,
+          "missing": []
+        },
+        "XLY": {
+          "usable": 10,
+          "of": 10,
+          "missing": []
+        },
+        "XLC": {
+          "usable": 10,
+          "of": 10,
+          "missing": []
+        },
+        "XLI": {
+          "usable": 10,
+          "of": 10,
+          "missing": []
+        },
+        "XLE": {
+          "usable": 10,
+          "of": 10,
+          "missing": []
+        },
+        "XLP": {
+          "usable": 10,
+          "of": 10,
+          "missing": []
+        },
+        "XLU": {
+          "usable": 10,
+          "of": 10,
+          "missing": []
+        },
+        "XLB": {
+          "usable": 10,
+          "of": 10,
+          "missing": []
+        },
+        "XLRE": {
+          "usable": 10,
+          "of": 10,
+          "missing": []
+        },
+        "SMH": {
+          "usable": 10,
+          "of": 10,
+          "missing": []
+        },
+        "XBI": {
+          "usable": 10,
+          "of": 10,
+          "missing": []
+        },
+        "ITA": {
+          "usable": 10,
+          "of": 10,
+          "missing": []
+        },
+        "XHB": {
+          "usable": 10,
+          "of": 10,
+          "missing": []
+        }
+      },
+      "target_vol": {
+        "MU": 0.07032,
+        "LRCX": 0.05901,
+        "AMAT": 0.06306,
+        "ASML": 0.03848,
+        "AMD": 0.04706,
+        "UTHR": 0.01342,
+        "INCY": 0.02171,
+        "MRNA": 0.05595,
+        "NBIX": 0.01696,
+        "GILD": 0.02209,
+        "IWM": 0.00734
+      },
+      "target_flat_frac": {
+        "MU": 0.0,
+        "LRCX": 0.0,
+        "AMAT": 0.0,
+        "ASML": 0.0,
+        "AMD": 0.0,
+        "UTHR": 0.0,
+        "INCY": 0.0,
+        "MRNA": 0.0,
+        "NBIX": 0.0,
+        "GILD": 0.0,
+        "IWM": 0.0
+      }
+    }
+  },
+  "target_weights": {
+    "MU": 0.06666666666666667,
+    "LRCX": 0.06666666666666667,
+    "AMAT": 0.06666666666666667,
+    "ASML": 0.06666666666666667,
+    "AMD": 0.06666666666666667,
+    "UTHR": 0.06666666666666667,
+    "INCY": 0.06666666666666667,
+    "MRNA": 0.06666666666666667,
+    "NBIX": 0.06666666666666667,
+    "GILD": 0.06666666666666667,
+    "IWM": 0.3333333333333333
+  }
+}
